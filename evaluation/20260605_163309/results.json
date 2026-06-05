@@ -1,0 +1,6 @@
+{
+    "model_name": "pointnet",
+    "eval_loss": 0.4984431725793651,
+    "eval_accuracy": 0.8871753246753247,
+    "eval_avg_class_accuracy": 0.8535235698225732
+}

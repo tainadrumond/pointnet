@@ -9,7 +9,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, '../utils'))
 
-
 class input_transform_net(nn.Module):
     """ Input (XYZ) Transform Net """
     def __init__(self, K=3):

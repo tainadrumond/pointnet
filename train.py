@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import math
 import h5py
@@ -10,6 +11,17 @@ import socket
 import importlib
 import os
 import sys
+import argparse
+
+# args
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--config",
+    type=str,
+    required=True,
+    help="config JSON filename"
+)
+args = parser.parse_args()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
@@ -18,9 +30,10 @@ sys.path.append(os.path.join(BASE_DIR, 'utils'))
 import provider
 
 # Lê os argumentos do arquivo de configuração
-with open('configs/modelnet40_ply_hdf5_2028_config.json', 'r') as f:
+with open(f'configs/{args.config}.json', 'r') as f:
     config = json.load(f)
 
+SEED = config['seed']
 BATCH_SIZE = config['batch_size']
 NUM_POINT = config['num_point']
 MAX_EPOCH = config['max_epoch']
@@ -31,10 +44,22 @@ OPTIMIZER = config['optimizer']
 DECAY_STEP = config['decay_step']
 DECAY_RATE = config['decay_rate']
 
+# seed
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+
 MODEL_NAME = config['model']
 MODEL = importlib.import_module(MODEL_NAME) # import network module
 MODEL_FILE = os.path.join(BASE_DIR, 'models', MODEL_NAME + '.py')
-LOG_DIR = config['log_dir']
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+LOG_DIR = os.path.join(
+    config["log_dir"],
+    timestamp
+)
 
 if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
 os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
