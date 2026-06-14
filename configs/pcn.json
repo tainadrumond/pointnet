@@ -1,0 +1,14 @@
+{
+    "seed": 42,
+    "physical_batch_size": 4,
+    "num_coarse_points": 1024,
+    "global_feat_dim": 1024,
+    "grid_size": 4,
+    "grid_scale": 0.05,
+    "max_epoch": 50,
+    "learning_rate": 0.0001,
+    "gpu": 0,
+    "decay_step": 50000,
+    "decay_rate": 0.7,
+    "log_dir": "log"
+}

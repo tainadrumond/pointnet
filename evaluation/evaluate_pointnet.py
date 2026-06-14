@@ -28,7 +28,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, 'models'))
 sys.path.append(os.path.join(BASE_DIR, 'utils'))
-import provider
+import scripts.pointnet_provider as provider
 
 # load settings
 with open(f'configs/{args.config}.json', 'r') as f:
@@ -53,7 +53,7 @@ TEST_FILES = provider.getDataFiles(\
     os.path.join(BASE_DIR, 'data/modelnet40_ply_hdf5_2048/test_files.txt'))
 
 # load model
-MODEL = importlib.import_module(MODEL_NAME) # import network module
+MODEL = importlib.import_module(f"pointnet.{MODEL_NAME}") # import network module
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = MODEL.PointNetCls(num_classes=NUM_CLASSES)
 checkpoint = torch.load(f"log/{args.run}/model.pth", map_location=device)

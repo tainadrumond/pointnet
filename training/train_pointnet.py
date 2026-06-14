@@ -23,11 +23,11 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(BASE_DIR, 'models'))
 sys.path.append(os.path.join(BASE_DIR, 'utils'))
-import provider
+import scripts.pointnet_provider as provider
 
 # Lê os argumentos do arquivo de configuração
 with open(f'configs/{args.config}.json', 'r') as f:
@@ -52,8 +52,8 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
 MODEL_NAME = config['model']
-MODEL = importlib.import_module(MODEL_NAME) # import network module
-MODEL_FILE = os.path.join(BASE_DIR, 'models', MODEL_NAME + '.py')
+MODEL = importlib.import_module(f"pointnet.{MODEL_NAME}") # import network module
+MODEL_FILE = os.path.join(BASE_DIR, 'models', 'pointnet', MODEL_NAME + '.py')
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_DIR = os.path.join(
@@ -63,7 +63,7 @@ LOG_DIR = os.path.join(
 
 if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
 os.system('cp %s %s' % (MODEL_FILE, LOG_DIR)) # bkp of model def
-os.system('cp train.py %s' % (LOG_DIR)) # bkp of train procedure
+os.system('cp training/train_pointnet.py %s' % (LOG_DIR)) # bkp of train procedure
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(config)+'\n')
 
