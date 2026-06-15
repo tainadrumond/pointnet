@@ -10,20 +10,15 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from models.pointnet.pointnet_encoder import PointNetEncoder
+import torch.nn.functional as F
+from models.pcn.pcn_encoder import PointNetEncoder
 from models.pcn.fc_decoder import FCDecoder
 from models.pcn.folding_based_decoder import FoldingBasedDecoder
 from util import chamfer_distance
 
 
-# default hyperparameters
-NUM_COARSE_POINTS = 1024
-GLOBAL_FEAT_DIM = 1024
-GRID_SIZE = 4
-GRID_SCALE = 0.05
-
 class PCN(nn.Module):
-    def __init__(self, num_coarse=NUM_COARSE_POINTS, global_feat_dim=GLOBAL_FEAT_DIM, grid_size=GRID_SIZE, grid_scale=GRID_SCALE):
+    def __init__(self, num_coarse=1024, global_feat_dim=1024, grid_size=4, grid_scale=0.05):
         super(PCN, self).__init__()
         
         self.encoder = PointNetEncoder(global_feat_dim=global_feat_dim)
@@ -33,7 +28,7 @@ class PCN(nn.Module):
         self.dense_decoder = FoldingBasedDecoder(num_coarse_points=num_coarse, global_feat_dim=global_feat_dim, grid_size=grid_size, grid_scale=grid_scale)
 
     def forward(self, x):
-        global_features, _ = self.encoder(x)
+        global_features = self.encoder(x)
         coarse = self.coarse_decoder(global_features)
         dense = self.dense_decoder(global_features, coarse)
 
