@@ -25,7 +25,7 @@ def build_index(root_dir):
     return sorted(samples)
 
 class ShapeNetPLYDataset(Dataset):
-    def __init__(self, data_dir, split="train", num_input_points=2048, num_gt_points=16384, num_views=8):
+    def __init__(self, data_dir, split="train", num_input_points=1024, num_gt_points=16384, num_views=8):
         self.complete_dir = os.path.join(data_dir, split, "complete")
         self.partial_dir = os.path.join(data_dir, split, "partial")
         self.n_in, self.n_gt, self.num_views = num_input_points, num_gt_points, num_views

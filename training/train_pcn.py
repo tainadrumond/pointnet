@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 # args
 parser = argparse.ArgumentParser()
@@ -23,7 +24,6 @@ if PROJECT_ROOT not in sys.path:
 from scripts.pcn_provider import ShapeNetPLYDataset
 from models.pcn.pcn import PCN, pcn_loss
 
-# 2. Carregar configurações do JSON
 with open(os.path.join(PROJECT_ROOT, f'configs/{args.config}.json'), 'r') as f:
     config = json.load(f)
 
@@ -57,7 +57,7 @@ LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(config) + '\n')
 
 def log_string(out_str):
-    """Escreve tanto no terminal quanto no arquivo de log físico."""
+    """Writes to both terminal and physical log file."""
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
     print(out_str)
@@ -95,7 +95,9 @@ def train():
         total_train_loss = 0.0
         optimizer.zero_grad()
 
-        for batch_idx, (partial, complete, _) in enumerate(train_loader):
+        train_pbar = tqdm(train_loader, desc=f'Train Epoch {epoch+1:03d}/{MAX_EPOCH:03d}', leave=False)
+
+        for batch_idx, (partial, complete, _) in enumerate(train_pbar):
             partial, complete = partial.to(device), complete.to(device)
 
             coarse_pred, fine_pred = model(partial)
@@ -111,14 +113,17 @@ def train():
 
             real_loss_value = loss.item() * ACCUMULATION_STEPS
             total_train_loss += real_loss_value
-
             current_lr = optimizer.param_groups[0]['lr']
+
             train_writer.add_scalar('loss', real_loss_value, global_step)
             train_writer.add_scalar('learning_rate', current_lr, global_step)
             train_writer.add_scalar('alpha', alpha, global_step)
 
+            train_pbar.set_postfix({'Loss': f'{real_loss_value:.4f}', 'LR': f'{current_lr:.6f}'})
+
             if batch_idx % 100 == 0:
-                log_string(f"Batch [{batch_idx:05d}/{len(train_loader):05d}] | Loss: {real_loss_value:.4f} | LR: {current_lr:.6f}")
+                LOG_FOUT.write(f"Batch [{batch_idx:05d}/{len(train_loader):05d}] | Loss: {real_loss_value:.4f} | LR: {current_lr:.6f}\n")
+                LOG_FOUT.flush()
 
             global_step += 1
 
@@ -128,17 +133,21 @@ def train():
         model.eval()
         total_val_loss = 0.0
         
+        val_pbar = tqdm(val_loader, desc=f'Eval Epoch {epoch+1:03d}/{MAX_EPOCH:03d}', leave=False)
+        
         with torch.no_grad():
-            for partial, complete, _ in val_loader:
+            for partial, complete, _ in val_pbar:
                 partial, complete = partial.to(device), complete.to(device)
                 coarse_pred, fine_pred = model(partial)
                 loss = pcn_loss(coarse_pred, fine_pred, complete, alpha)
+                
                 total_val_loss += loss.item()
+                
+                val_pbar.set_postfix({'Loss': f'{loss.item():.4f}'})
                 
         avg_val_loss = total_val_loss / len(val_loader)
         
         test_writer.add_scalar('eval/loss', avg_val_loss, global_step)
-        
         log_string(f'Eval Mean Loss: {avg_val_loss:.6f}')
 
         if (epoch + 1) % 5 == 0 or (epoch + 1) == MAX_EPOCH:
