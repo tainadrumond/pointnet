@@ -1,6 +1,6 @@
 {
     "seed": 42,
-    "physical_batch_size": 16,
+    "physical_batch_size": 8,
     "num_coarse_points": 1024,
     "global_feat_dim": 1024,
     "grid_size": 2,

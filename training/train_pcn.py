@@ -3,6 +3,7 @@ import sys
 import json
 import argparse
 import socket
+import re
 from datetime import datetime
 import torch
 import torch.optim as optim
@@ -14,6 +15,7 @@ from tqdm import tqdm
 # args
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, required=True, help="config JSON filename")
+parser.add_argument("--resume", type=str, default=None, help="path to checkpoint to resume training from")
 args = parser.parse_args()
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,15 +48,32 @@ torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-LOG_DIR = os.path.join(PROJECT_ROOT, config["log_dir"], timestamp)
-os.makedirs(LOG_DIR, exist_ok=True)
+if args.resume:
+    if not os.path.exists(args.resume):
+        raise FileNotFoundError(f"Checkpoint not found at: {args.resume}")
+    
+    LOG_DIR = os.path.dirname(os.path.abspath(args.resume))
+    
+    filename = os.path.basename(args.resume)
+    match = re.match(r"pcn_epoch_(\d+)\.pth", filename)
+    if match:
+        start_epoch = int(match.group(1))
+    else:
+        raise ValueError(f"Could not parse epoch number from checkpoint filename: {filename}. Expected format: pcn_epoch_<number>.pth")
+    
+    LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'a')
+    LOG_FOUT.write(f"\n--- Resuming training from epoch {start_epoch} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+else:
+    start_epoch = 0
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    LOG_DIR = os.path.join(PROJECT_ROOT, config["log_dir"], timestamp)
+    os.makedirs(LOG_DIR, exist_ok=True)
 
-os.system(f'cp {os.path.abspath(__file__)} {LOG_DIR}') 
-os.system(f'cp {os.path.join(PROJECT_ROOT, "models/pcn/pcn.py")} {LOG_DIR}')
+    os.system(f'cp {os.path.abspath(__file__)} {LOG_DIR}') 
+    os.system(f'cp {os.path.join(PROJECT_ROOT, "models/pcn/pcn.py")} {LOG_DIR}')
 
-LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
-LOG_FOUT.write(str(config) + '\n')
+    LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+    LOG_FOUT.write(str(config) + '\n')
 
 def log_string(out_str):
     """Writes to both terminal and physical log file."""
@@ -68,12 +87,18 @@ def train():
     log_string(f"Physical Batch: {PHYSICAL_BATCH_SIZE} | Accumulation Steps: {ACCUMULATION_STEPS}")
 
     train_dataset = ShapeNetPLYDataset(data_dir=os.path.join(PROJECT_ROOT, "data/shapenet"), split="train")
-    val_dataset = ShapeNetPLYDataset(data_dir=os.path.join(PROJECT_ROOT, "data/shapenet"), split="valid")
+    val_dataset = ShapeNetPLYDataset(data_dir=os.path.join(PROJECT_ROOT, "data/shapenet"), split="valid", num_views=1)
 
     train_loader = DataLoader(train_dataset, batch_size=PHYSICAL_BATCH_SIZE, shuffle=True, num_workers=4, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=PHYSICAL_BATCH_SIZE * 2, shuffle=False, num_workers=4)
 
     model = PCN(num_coarse=NUM_COARSE_POINTS, global_feat_dim=GLOBAL_FEAT_DIM, grid_size=GRID_SIZE, grid_scale=GRID_SCALE).to(device)
+    
+    if args.resume:
+        log_string(f"Loading checkpoint: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device)
+        model.load_state_dict(checkpoint)
+
     optimizer = optim.Adam(model.parameters(), lr=BASE_LEARNING_RATE)
     scheduler = StepLR(optimizer, step_size=DECAY_STEP, gamma=DECAY_RATE)
 
@@ -82,7 +107,16 @@ def train():
 
     global_step = 0
 
-    for epoch in range(MAX_EPOCH):
+    if args.resume:
+        log_string(f"Catching up scheduler and global_step for {start_epoch} epochs...")
+        for ep in range(start_epoch):
+            for batch_idx in range(len(train_loader)):
+                if (batch_idx + 1) % ACCUMULATION_STEPS == 0 or (batch_idx + 1) == len(train_loader):
+                    scheduler.step()
+                global_step += 1
+        log_string(f"Resumed at global_step: {global_step}, Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
+
+    for epoch in range(start_epoch, MAX_EPOCH):
         log_string(f'\n**** EPOCH {epoch+1:03d} ****')
         sys.stdout.flush()
 
@@ -150,7 +184,7 @@ def train():
         test_writer.add_scalar('eval/loss', avg_val_loss, global_step)
         log_string(f'Eval Mean Loss: {avg_val_loss:.6f}')
 
-        if (epoch + 1) % 5 == 0 or (epoch + 1) == MAX_EPOCH:
+        if (epoch + 1) % 1 == 0 or (epoch + 1) == MAX_EPOCH:
             save_path = os.path.join(LOG_DIR, f"pcn_epoch_{epoch+1}.pth")
             torch.save(model.state_dict(), save_path)
             log_string(f"Model checkpoint saved in: {save_path}")
