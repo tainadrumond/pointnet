@@ -26,6 +26,7 @@ def build_index(root_dir):
 
 class ShapeNetPLYDataset(Dataset):
     def __init__(self, data_dir, split="train", num_input_points=1024, num_gt_points=16384, num_views=8):
+        self.split = split
         self.complete_dir = os.path.join(data_dir, split, "complete")
         self.partial_dir = os.path.join(data_dir, split, "partial")
         self.n_in, self.n_gt, self.num_views = num_input_points, num_gt_points, num_views
@@ -45,7 +46,13 @@ class ShapeNetPLYDataset(Dataset):
         
         base_name = os.path.splitext(os.path.basename(complete_path))[0]
         rel_path = os.path.relpath(complete_path, self.complete_dir)
-        partial_path = os.path.join(self.partial_dir, os.path.dirname(rel_path), f"{base_name}_{view_id}.ply")
+
+        if self.split == "train":
+            partial_name = f"{base_name}_{view_id}.ply"
+        else:
+            partial_name = f"{base_name}.ply"
+
+        partial_path = os.path.join(self.partial_dir, os.path.dirname(rel_path), partial_name)
 
         partial = resample_pcd(load_ply(partial_path), self.n_in)
         complete = resample_pcd(load_ply(complete_path), self.n_gt)
