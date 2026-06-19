@@ -44,7 +44,7 @@ class PointNetEncoder(nn.Module):
 
         # 2nd shared mlp
         feat2 = F.relu(self.bn3(self.conv3(fused)))
-        feat2 = F.relu(self.bn4(self.conv4(fused))) # (B, global_feat_dim, N)
+        feat2 = F.relu(self.bn4(self.conv4(feat2))) # (B, global_feat_dim, N)
 
         # 2nd point-wise maxpool
         global_feature = torch.max(feat2, 2)[0] # (B, global_feat_dim)
