@@ -18,8 +18,8 @@ class FoldingBasedDecoder(nn.Module):
 
         self.num_coarse = num_coarse_points
         self.global_feat_dim = global_feat_dim
-        self.grid_size = grid_size
-        self.grid_scale = grid_scale
+        self.grid_size = grid_size # u
+        self.grid_scale = grid_scale # r
 
         self.num_fine = self.num_coarse * (self.grid_size ** 2)
 

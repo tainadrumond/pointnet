@@ -139,6 +139,11 @@ def train():
 
             loss = loss / ACCUMULATION_STEPS
             loss.backward()
+            
+            if batch_idx % 100 == 0:
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        train_writer.add_histogram(f'gradients/{name}', param.grad, global_step)
 
             if (batch_idx + 1) % ACCUMULATION_STEPS == 0 or (batch_idx + 1) == len(train_loader):
                 optimizer.step()

@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 import torch.nn as nn
-
+from pytorch3d.loss import chamfer_distance as chamfer_dist_pytorch3d
 
 # path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from models.pcn.pcn_encoder import PointNetEncoder
 from models.pcn.fc_decoder import FCDecoder
 from models.pcn.folding_based_decoder import FoldingBasedDecoder
-from util import chamfer_distance
+from util import chamfer_distance, chamfer_distance_memory_efficient
 
 
 class PCN(nn.Module):
@@ -35,8 +35,8 @@ class PCN(nn.Module):
         return coarse, dense
 
 def pcn_loss(pred_coarse, pred_detail, gt, alpha=1.0):
-    loss_coarse = chamfer_distance(pred_coarse, gt)
-    loss_detail = chamfer_distance(pred_detail, gt)
+    loss_coarse, _ = chamfer_dist_pytorch3d(pred_coarse, gt)
+    loss_detail, _ = chamfer_dist_pytorch3d(pred_detail, gt)
     return (alpha * loss_coarse) + loss_detail
 
 
